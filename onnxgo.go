@@ -143,7 +143,7 @@ func receiveResults(conn *websocket.Conn, recvWg *sync.WaitGroup, result *string
 }
 
 // Sends a file via websocket to a online server
-func sendOnlineWS(serverURI, filePath, sourceFile string, samplesPerMessage int, secondsPerMessage float64) (string, error) {
+func SendOnlineWS(serverURI, filePath, sourceFile string, samplesPerMessage int, secondsPerMessage float64) (string, error) {
 	audioData, err := readWave(filePath)
 	log.Printf("Sending file %s online", sourceFile)
 	if err != nil {
@@ -224,7 +224,7 @@ func sendOnlineWS(serverURI, filePath, sourceFile string, samplesPerMessage int,
 }
 
 // Sends a file via websocket to a offline server
-func sendOfflineWS(serverURI, filePath string, sourceFile string) (string, error) {
+func SendOfflineWS(serverURI, filePath string, sourceFile string) (string, error) {
 	// Sends the file via websockets
 	conn, _, err := websocket.DefaultDialer.Dial(serverURI, nil)
 	if err != nil {
@@ -324,7 +324,7 @@ func sendOfflineWS(serverURI, filePath string, sourceFile string) (string, error
 }
 
 // Sends a file via script
-func sendScript(script, language, filePath, sourceFile string) (string, error) {
+func SendScript(script, language, filePath, sourceFile string) (string, error) {
 	// Sends the file via script
 	// cmd := exec.Command("python3", script, "api-wss", filePath, language)
 	cmd := exec.Command(script, "api-wss", filePath, language)
