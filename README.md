@@ -1,22 +1,22 @@
-## ONNX Go library
+# ONNX Go library
 This library provides functions to send files to ONNX servers:
 - sherpa-onnx-online-websocket-server
 - sherpa-onnx-offline-websocket-server
 - banafo python APRI script
-# Installation
+## Installation
 To install the ONNX Go library, run:
-'''bash
+```bash
 go get github.com/maxnzv/onnx-go
 ```
-# Usage
+## Usage
 Import the library:
-'''go
+```go
 import onnxgo "github.com/maxnzv/onnx-go"
-'''
+```
 Use the library to send files to a server:
-'''go
+```go
 err := onnxgo.SendOfflineWS("server_url", "file_path", "")
 if err != nil {
     log.Fatal(err)
 }
-'''
+```
