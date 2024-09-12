@@ -2,7 +2,7 @@
 This library provides functions to send files to ONNX servers:
 - sherpa-onnx-online-websocket-server
 - sherpa-onnx-offline-websocket-server
-- banafo python APRI script
+- banafo python API script
 ## Installation
 To install the ONNX Go library, run:
 ```bash
