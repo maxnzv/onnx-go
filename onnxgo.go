@@ -58,32 +58,35 @@ func (w *WebSocketWriter) ReadMessage() (int, []byte, error) {
 }
 
 // Function to read WAV file and convert it to the required format
-func readWave(filePath string) ([]float32, error) {
+func readWave(filePath string) ([]float32, int, error) {
 	// Open the file
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer file.Close()
 
 	// Read the file header to get sample rate and other info
+	var sampleRate int
 	header := make([]byte, 44)
 	if _, err := io.ReadFull(file, header); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Check if the file is single channel and 16-bit
 	if binary.LittleEndian.Uint16(header[22:24]) != 1 {
-		return nil, errors.New("unsupported number of channels, must be 1")
+		return nil, 0, errors.New("unsupported number of channels, must be 1")
 	}
 	if binary.LittleEndian.Uint16(header[34:36]) != 16 {
-		return nil, errors.New("unsupported bit depth, must be 16")
+		return nil, 0, errors.New("unsupported bit depth, must be 16")
 	}
+
+	sampleRate = int(binary.LittleEndian.Uint32(header[24:28]))
 
 	// Read audio data
 	audioData, err := io.ReadAll(file)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Convert int16 samples to float32 and normalize to range [-1, 1]
@@ -94,7 +97,7 @@ func readWave(filePath string) ([]float32, error) {
 		samples[i] = float32(sample) / 32768.0
 	}
 
-	return samples, nil
+	return samples, sampleRate, nil
 }
 
 func concatMap(m map[int]string) string {
@@ -144,7 +147,7 @@ func receiveResults(conn *websocket.Conn, recvWg *sync.WaitGroup, result *string
 
 // Sends a file via websocket to a online server
 func SendOnlineWS(serverURI, filePath, sourceFile string, samplesPerMessage int, secondsPerMessage float64) (string, error) {
-	audioData, err := readWave(filePath)
+	audioData, _, err := readWave(filePath)
 	log.Printf("Sending file %s online", sourceFile)
 	if err != nil {
 		log.Printf("failed to read wave file %s: %v", sourceFile, err)
@@ -267,21 +270,46 @@ func SendOfflineWS(serverURI, filePath string, sourceFile string) (string, error
 	}
 	defer file.Close()
 
-	stat, err := file.Stat()
+	audioData, sampleRate, err := readWave(filePath)
 	if err != nil {
-		return "", logErrorf("failed to stat file: %v", err)
+		log.Println("failed to read wave file: ", err)
+		return "", err
 	}
 
-	buffer := make([]byte, stat.Size())
-	_, err = file.Read(buffer)
-	if err != nil {
-		return "", logErrorf("failed to read file: %v", err)
+	// Prepare the buffer
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.LittleEndian, int32(sampleRate)); err != nil {
+		log.Println("failed to write sample rate: ", err)
+		return "", err
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, int32(len(audioData)*4)); err != nil {
+		log.Println("failed to write data length: ", err)
+		return "", err
+	}
+	for _, sample := range audioData {
+		if err := binary.Write(&buf, binary.LittleEndian, sample); err != nil {
+			log.Println("failed to write audio data: ", err)
+			return "", err
+		}
 	}
 
-	err = wsWriter.WriteMessage(websocket.BinaryMessage, buffer)
-	if err != nil {
-		return "", logErrorf("failed to send file: %v", err)
+	const payloadLen = 1024000
+	bufferBytes := buf.Bytes()
+	totalBytes := len(bufferBytes)
+	log.Printf("Payload_len: %d, buffer size: %d", payloadLen, totalBytes)
+
+	// Send the buffer in chunks
+	for offset := 0; offset < totalBytes; offset += payloadLen {
+		end := offset + payloadLen
+		if end > totalBytes {
+			end = totalBytes
+		}
+		if err := wsWriter.WriteMessage(websocket.BinaryMessage, bufferBytes[offset:end]); err != nil {
+			log.Println("failed to send buffer chunk: ", err)
+			return "", err
+		}
 	}
+	log.Printf("Payload sent")
 
 	// log.Printf("Successfully sent file: %s", filePath)
 	log.Printf("Successfully sent file: %s", sourceFile)
