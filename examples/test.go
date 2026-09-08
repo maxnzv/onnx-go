@@ -142,9 +142,9 @@ func sendFile(sourceFile string) (string, error) {
 
 	if serverURI != "" {
 		if onlineModel {
-			return sendOnlineWS(filePath, sourceFile)
+			return sendOnlineWS(filePath, destinationFile.Name())
 		} else {
-			return sendOfflineWS(filePath, sourceFile)
+			return sendOfflineWS(filePath, destinationFile.Name())
 		}
 	} else {
 		if script != "" {
